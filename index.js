@@ -1,6 +1,11 @@
 import fetch from "node-fetch";
 
-// Load environment variables
+// Decode Base64 cookies so Railway can't corrupt them
+const FB_C_USER = Buffer.from(process.env.FB_C_USER, "base64").toString("utf8");
+const FB_XS = Buffer.from(process.env.FB_XS, "base64").toString("utf8");
+
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
 const GROUPS = [
   {
     name: "Group 1",
@@ -14,11 +19,7 @@ const GROUPS = [
   }
 ];
 
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const FB_C_USER = process.env.FB_C_USER;
-const FB_XS = process.env.FB_XS;
-
-// Startup logging
+// Startup logs
 console.log("Bot starting...");
 console.log("Loaded Groups:");
 console.log("1:", process.env.FB_GROUP_URL_1);
@@ -27,7 +28,7 @@ console.log("Webhook:", DISCORD_WEBHOOK_URL);
 console.log("c_user:", FB_C_USER);
 console.log("xs:", FB_XS);
 
-// Validate required ENV variables
+// Validate ENV
 if (!DISCORD_WEBHOOK_URL || !FB_C_USER || !FB_XS) {
   console.error("❌ Missing required environment variables.");
   process.exit(1);
