@@ -1,14 +1,24 @@
 import fetch from "node-fetch";
 
-const GROUP_URL = process.env.FB_GROUP_URL;
+const GROUPS = [
+  {
+    name: "Group 1",
+    url: process.env.FB_GROUP_URL_1,
+    lastSeen: null
+  },
+  {
+    name: "Group 2",
+    url: process.env.FB_GROUP_URL_2,
+    lastSeen: null
+  }
+];
+
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const FB_C_USER = process.env.FB_C_USER;
 const FB_XS = process.env.FB_XS;
 
-let lastSeenPostId = null;
-
-async function fetchGroupPage() {
-  const res = await fetch(GROUP_URL, {
+async function fetchGroupPage(url) {
+  const res = await fetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -28,17 +38,19 @@ function extractPostIds(html) {
   return Array.from(ids);
 }
 
-async function sendToDiscord(postId) {
-  const url = `${GROUP_URL}/posts/${postId}`;
+async function sendToDiscord(groupName, postId, groupUrl) {
+  const postUrl = `${groupUrl}/posts/${postId}`;
   await fetch(DISCORD_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: `New post:\n${url}` })
+    body: JSON.stringify({
+      content: `New post in **${groupName}**:\n${postUrl}`
+    })
   });
 }
 
-async function checkForNewPosts() {
-  const html = await fetchGroupPage();
+async function checkGroup(group) {
+  const html = await fetchGroupPage(group.url);
   if (!html) return;
 
   const postIds = extractPostIds(html);
@@ -47,18 +59,26 @@ async function checkForNewPosts() {
   postIds.sort((a, b) => Number(b) - Number(a));
   const newest = postIds[0];
 
-  if (!lastSeenPostId) {
-    lastSeenPostId = newest;
+  if (!group.lastSeen) {
+    group.lastSeen = newest;
     return;
   }
 
-  if (newest === lastSeenPostId) return;
+  if (newest === group.lastSeen) return;
 
-  const newOnes = postIds.filter(id => Number(id) > Number(lastSeenPostId));
-  for (const id of newOnes.reverse()) await sendToDiscord(id);
+  const newOnes = postIds.filter(id => Number(id) > Number(group.lastSeen));
+  for (const id of newOnes.reverse()) {
+    await sendToDiscord(group.name, id, group.url);
+  }
 
-  lastSeenPostId = newest;
+  group.lastSeen = newest;
 }
 
-checkForNewPosts();
-setInterval(checkForNewPosts, 5 * 60 * 1000);
+async function checkAllGroups() {
+  for (const group of GROUPS) {
+    await checkGroup(group);
+  }
+}
+
+checkAllGroups();
+setInterval(checkAllGroups, 5 * 60 * 1000);
